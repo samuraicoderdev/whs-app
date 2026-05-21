@@ -1,12 +1,22 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { motion } from 'motion/react';
 import { Search, Filter, Plus, Box, ArrowUpDown } from 'lucide-react';
-import { mockProducts } from '../lib/data';
+import { api } from '../lib/api';
+import type { Product } from '../types';
 
 export function Inventory() {
+  const [products, setProducts] = useState<Product[]>([]);
+  const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
 
-  const filteredProducts = mockProducts.filter(p => 
+  useEffect(() => {
+    api.getProducts()
+      .then(setProducts)
+      .catch(console.error)
+      .finally(() => setLoading(false));
+  }, []);
+
+  const filteredProducts = products.filter(p => 
     p.name.toLowerCase().includes(searchTerm.toLowerCase()) || 
     p.sku.toLowerCase().includes(searchTerm.toLowerCase()) ||
     p.id.includes(searchTerm)
@@ -29,6 +39,11 @@ export function Inventory() {
         </button>
       </header>
 
+      {loading ? (
+        <div className="flex justify-center flex-1 items-center">
+          <div className="animate-spin w-8 h-8 rounded-full border-4 border-blue-600 border-t-transparent" />
+        </div>
+      ) : (
       <div className="bg-white border border-slate-200 shadow-sm rounded-2xl flex-1 flex flex-col overflow-hidden">
         {/* Toolbar */}
         <div className="p-4 border-b border-slate-200 flex flex-col sm:flex-row gap-4 items-center justify-between bg-slate-50/50">
@@ -108,6 +123,7 @@ export function Inventory() {
           </table>
         </div>
       </div>
+      )}
     </motion.div>
   );
 }

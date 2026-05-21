@@ -1,3 +1,5 @@
+@import "tailwindcss";
+
 /** Properties Base de la aplicación */
 :root {
   --accent-100: hsla(215, 95%, 90%);
@@ -123,12 +125,12 @@ body {
   padding: 0;
   padding: inherit;
   min-height: 100dvh;
-  color: var(--text, --bg);
+  color: var(--text, var(--bg));
 }
 
 h1,
 h2 {
-  font-family: var(--font-size-2xl);
+  font-family: var(--sans);
   font-weight: 500;
   color: hsl(225, 85%, 65%);
 }
@@ -172,6 +174,3 @@ code {
   padding: 4px 8px;
   background: var(--code-bg);
 }
-
-/** Tailwind CSS */
-@import "tailwindcss";

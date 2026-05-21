@@ -1,8 +1,20 @@
+import { useEffect, useState } from 'react';
 import { motion } from 'motion/react';
 import { Search, Mail, Phone, Building2, MoreVertical, Plus } from 'lucide-react';
-import { mockCustomers } from '../lib/data';
+import { api } from '../lib/api';
+import type { Customer } from '../types';
 
 export function CRM() {
+  const [customers, setCustomers] = useState<Customer[]>([]);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    api.getCustomers()
+      .then(setCustomers)
+      .catch(console.error)
+      .finally(() => setLoading(false));
+  }, []);
+
   return (
     <motion.div 
       initial={{ opacity: 0, y: 10 }}
@@ -36,7 +48,11 @@ export function CRM() {
         {/* List */}
         <div className="flex-1 overflow-auto p-6">
           <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6">
-            {mockCustomers.map((customer) => (
+            {loading ? (
+              <div className="col-span-full flex justify-center p-12">
+                <div className="animate-spin w-8 h-8 rounded-full border-4 border-blue-600 border-t-transparent" />
+              </div>
+            ) : customers.map((customer) => (
               <div key={customer.id} className="border border-slate-200 rounded-xl p-6 hover:shadow-md transition-shadow bg-white group">
                 <div className="flex justify-between items-start mb-4">
                   <div className="w-12 h-12 rounded-full bg-slate-100 flex items-center justify-center text-xl font-bold text-slate-600 shrink-0">

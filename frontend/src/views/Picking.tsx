@@ -1,43 +1,78 @@
 import { useState, useRef, useEffect } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
 import { ScanBarcode, CheckCircle2, ChevronRight, PackageCheck, AlertCircle, Camera, Keyboard, Layers, Map, CalendarClock, Box } from 'lucide-react';
-import { mockOrders, mockProducts } from '../lib/data';
-import { Order, OrderItem } from '../types';
+import { api, type PickingMode, type PickingTask } from '../lib/api';
+import type { Product } from '../types';
 import { Html5Qrcode } from 'html5-qrcode';
 
-type PickingMode = 'single' | 'batch' | 'zone' | 'wave';
 type ScannerMode = 'hardware' | 'camera';
 
-// Simulated Task structure to unify what we are picking
-interface PickingTask {
-  id: string;
-  title: string;
-  subtitle: string;
-  items: (OrderItem & { orderId?: string })[];
-}
+const playSound = (type: 'success' | 'error') => {
+  try {
+    const AudioContext = window.AudioContext || (window as any).webkitAudioContext;
+    if (!AudioContext) return;
+    const ctx = new AudioContext();
+    const osc = ctx.createOscillator();
+    const gain = ctx.createGain();
+    
+    osc.connect(gain);
+    gain.connect(ctx.destination);
+    
+    if (type === 'success') {
+      osc.type = 'sine';
+      osc.frequency.setValueAtTime(800, ctx.currentTime);
+      osc.frequency.exponentialRampToValueAtTime(1200, ctx.currentTime + 0.1);
+      gain.gain.setValueAtTime(0.5, ctx.currentTime);
+      gain.gain.exponentialRampToValueAtTime(0.01, ctx.currentTime + 0.1);
+      osc.start();
+      osc.stop(ctx.currentTime + 0.1);
+    } else {
+      osc.type = 'sawtooth';
+      osc.frequency.setValueAtTime(300, ctx.currentTime);
+      osc.frequency.exponentialRampToValueAtTime(150, ctx.currentTime + 0.3);
+      gain.gain.setValueAtTime(0.5, ctx.currentTime);
+      gain.gain.exponentialRampToValueAtTime(0.01, ctx.currentTime + 0.3);
+      osc.start();
+      osc.stop(ctx.currentTime + 0.3);
+    }
+  } catch (e) {
+    console.error("Audio synth error", e);
+  }
+};
 
 const CameraScanner = ({ onScan }: { onScan: (val: string) => void }) => {
   useEffect(() => {
     const html5QrCode = new Html5Qrcode("camera-reader");
     let isMounted = true;
     
-    // Start scanner with slight delay to ensure DOM is ready
-    const timeoutMsg = setTimeout(() => {
-      html5QrCode.start(
-        { facingMode: "environment" },
-        { fps: 10, qrbox: { width: 250, height: 250 } },
-        (decodedText) => {
-          if (isMounted) onScan(decodedText);
-        },
-        () => {}
-      ).catch(err => {
-        console.error("Error starting camera", err);
-      });
-    }, 100);
+    // Obtener cámaras y usar la trasera si es posible, si no la webcam predeterminada.
+    Html5Qrcode.getCameras().then(devices => {
+      if (!isMounted) return;
+      if (devices && devices.length) {
+        const backCamera = devices.find(d => d.label.toLowerCase().includes('back'));
+        const cameraId = backCamera ? backCamera.id : devices[0].id; // Forzar uso de cámara en escritorio o móvil
+        
+        html5QrCode.start(
+          cameraId,
+          { fps: 10, qrbox: { width: 250, height: 250 } },
+          (decodedText) => {
+            if (isMounted) onScan(decodedText);
+          },
+          () => {}
+        ).catch(err => console.error("Error al arrancar la cámara:", err));
+      } else {
+        // Fallback si no identifica IDs, intenta de entorno básico
+        html5QrCode.start(
+          { facingMode: "environment" },
+          { fps: 10, qrbox: { width: 250, height: 250 } },
+          (decodedText) => { if (isMounted) onScan(decodedText); },
+          () => {}
+        ).catch(console.error);
+      }
+    }).catch(console.error);
 
     return () => {
       isMounted = false;
-      clearTimeout(timeoutMsg);
       if (html5QrCode.isScanning) {
         html5QrCode.stop().catch(console.error);
       }
@@ -46,8 +81,8 @@ const CameraScanner = ({ onScan }: { onScan: (val: string) => void }) => {
 
   return (
     <div className="w-full flex justify-center py-4">
-      <div id="camera-reader" className="w-full max-w-xs aspect-square bg-slate-900 rounded-xl overflow-hidden shadow-inner flex items-center justify-center relative">
-        <div className="absolute inset-0 border-2 border-blue-500/50 m-8 rounded-lg pointer-events-none"></div>
+      <div id="camera-reader" className="w-full max-w-sm aspect-video bg-slate-900 rounded-xl overflow-hidden shadow-inner flex items-center justify-center relative">
+        <div className="absolute inset-0 border-4 border-blue-500/50 m-6 rounded-lg pointer-events-none"></div>
       </div>
     </div>
   );
@@ -60,65 +95,23 @@ export function Picking() {
   const [barcodeInput, setBarcodeInput] = useState('');
   const [errorMsg, setErrorMsg] = useState('');
   const [successMsg, setSuccessMsg] = useState('');
+  const [screenFlash, setScreenFlash] = useState<'success' | 'error' | null>(null);
+  const [tasks, setTasks] = useState<PickingTask[]>([]);
+  const [products, setProducts] = useState<Product[]>([]);
+  const [tasksLoading, setTasksLoading] = useState(true);
   const inputRef = useRef<HTMLInputElement>(null);
 
-  const pendingOrders = mockOrders.filter(o => o.status === 'Pendiente' || o.status === 'Picking');
+  useEffect(() => {
+    api.getProducts().then(setProducts).catch(console.error);
+  }, []);
 
-  // Generate Tasks based on mode
-  let tasks: PickingTask[] = [];
-  
-  if (pickingMode === 'single') {
-    tasks = pendingOrders.map(o => ({
-      id: o.id,
-      title: o.id,
-      subtitle: `Cliente: ${o.customerId}`,
-      items: [...o.items]
-    }));
-  } else if (pickingMode === 'batch') {
-    const allItems: Record<string, OrderItem> = {};
-    pendingOrders.forEach(o => {
-      o.items.forEach(item => {
-        if (!allItems[item.productId]) allItems[item.productId] = { ...item };
-        else {
-          allItems[item.productId].quantity += item.quantity;
-          allItems[item.productId].picked += item.picked;
-        }
-      });
-    });
-    tasks = [{
-      id: 'BATCH-001',
-      title: 'Batch Picking #1',
-      subtitle: `${pendingOrders.length} Órdenes combinadas`,
-      items: Object.values(allItems)
-    }];
-  } else if (pickingMode === 'zone') {
-    const zones: Record<string, (OrderItem & { orderId: string })[]> = {};
-    pendingOrders.forEach(o => {
-      o.items.forEach(item => {
-        const prod = mockProducts.find(p => p.id === item.productId);
-        const zone = prod ? prod.location.charAt(0) : 'Other';
-        if (!zones[zone]) zones[zone] = [];
-        // clone item and add to zone
-        const existing = zones[zone].find(z => z.productId === item.productId);
-        if (existing) {
-            existing.quantity += item.quantity;
-        } else {
-            zones[zone].push({ ...item, orderId: o.id });
-        }
-      });
-    });
-    tasks = Object.keys(zones).map(zone => ({
-      id: `ZONE-${zone}`,
-      title: `Zona ${zone}`,
-      subtitle: `${zones[zone].length} productos distintos`,
-      items: zones[zone]
-    }));
-  } else if (pickingMode === 'wave') {
-    tasks = [
-      { id: 'WAVE-MORNING', title: 'Ola Mañana (08:00 - 12:00)', subtitle: 'Prioridad Alta', items: pendingOrders[0]?.items || [] },
-      { id: 'WAVE-AFTERNOON', title: 'Ola Tarde (12:00 - 16:00)', subtitle: 'Prioridad Normal', items: pendingOrders[1]?.items || [] }
-    ].filter(w => w.items.length > 0);
-  }
+  useEffect(() => {
+    setTasksLoading(true);
+    api.getPickingTasks(pickingMode)
+      .then(setTasks)
+      .catch(console.error)
+      .finally(() => setTasksLoading(false));
+  }, [pickingMode]);
 
   // Refocus input if using hardware scanner
   useEffect(() => {
@@ -137,34 +130,43 @@ export function Picking() {
     setSuccessMsg('');
   }, [pickingMode]);
 
-  const handleScanValue = (val: string) => {
+  const triggerIndicator = (type: 'success' | 'error') => {
+    playSound(type);
+    setScreenFlash(type);
+    setTimeout(() => setScreenFlash(null), 800);
+  };
+
+  const handleScanValue = async (val: string) => {
     if (!selectedTask) return;
     setErrorMsg('');
     setSuccessMsg('');
     const scannedCode = val.trim();
 
-    // Check if barcode belongs to task
-    const itemIndex = selectedTask.items.findIndex(item => item.productId === scannedCode);
-    
-    if (itemIndex === -1) {
-      setErrorMsg('Producto incorrecto. Este ítem no pertenece a la lista actual.');
-      setBarcodeInput('');
-      return;
-    }
+    try {
+      const result = await api.scanBarcode({
+        mode: pickingMode,
+        taskId: selectedTask.id,
+        barcode: scannedCode,
+        orderId: selectedTask.items.find((i) => i.productId === scannedCode)?.orderId as string | undefined,
+      });
 
-    const item = selectedTask.items[itemIndex];
-    if (item.picked >= item.quantity) {
-      setErrorMsg('Ya se ha recolectado la cantidad total para este producto.');
-      setBarcodeInput('');
-      return;
-    }
+      if (!result.success) {
+        triggerIndicator('error');
+        setErrorMsg(result.message);
+        setBarcodeInput('');
+        return;
+      }
 
-    // Update task
-    const newTask = { ...selectedTask };
-    newTask.items[itemIndex].picked += 1;
-    setSelectedTask(newTask);
-    setSuccessMsg(`¡Producto ${scannedCode} escaneado correctamente!`);
-    setBarcodeInput('');
+      triggerIndicator('success');
+      if (result.task) setSelectedTask(result.task);
+      setTasks(await api.getPickingTasks(pickingMode));
+      setSuccessMsg(result.message);
+      setBarcodeInput('');
+    } catch {
+      triggerIndicator('error');
+      setErrorMsg('Error de conexión con el servidor.');
+      setBarcodeInput('');
+    }
   };
 
   const handleManualScan = (e: React.FormEvent) => {
@@ -172,7 +174,7 @@ export function Picking() {
     handleScanValue(barcodeInput);
   };
 
-  const getProductInfo = (id: string) => mockProducts.find(p => p.id === id);
+  const getProductInfo = (id: string) => products.find(p => String(p.id) === id);
 
   return (
     <motion.div 
@@ -224,7 +226,12 @@ export function Picking() {
           </div>
           <div className="flex-1 overflow-auto p-2">
             <div className="space-y-2">
-              {tasks.length === 0 && <div className="p-4 text-center text-slate-500">No hay tareas en este modo.</div>}
+              {tasksLoading && (
+                <div className="flex justify-center p-8">
+                  <div className="animate-spin w-8 h-8 rounded-full border-4 border-blue-600 border-t-transparent" />
+                </div>
+              )}
+              {!tasksLoading && tasks.length === 0 && <div className="p-4 text-center text-slate-500">No hay tareas en este modo.</div>}
               {tasks.map(task => (
                 <button
                   key={task.id}
@@ -252,7 +259,10 @@ export function Picking() {
         </div>
 
         {/* Right Column - Active Picking & Scanner */}
-        <div className="lg:col-span-2 bg-white border border-slate-200 shadow-sm rounded-2xl flex flex-col overflow-hidden relative">
+        <div className={`lg:col-span-2 bg-white border border-slate-200 shadow-sm rounded-2xl flex flex-col overflow-hidden relative transition-colors duration-500 ease-out ${
+          screenFlash === 'success' ? 'ring-4 ring-emerald-500 bg-emerald-50' : 
+          screenFlash === 'error' ? 'ring-4 ring-red-500 bg-red-50' : ''
+        }`}>
           
           {!selectedTask ? (
             <div className="flex-1 flex flex-col items-center justify-center p-8 text-center text-slate-500">
