@@ -1,0 +1,6 @@
+{
+  "name": "Smart SGA & CRM",
+  "description": "Sistema de Gestión de Almacenes con módulo de Picking, Inventario y CRM.",
+  "requestFramePermissions": ["camera"],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
