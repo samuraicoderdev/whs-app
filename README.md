@@ -1,75 +1,96 @@
-# React + TypeScript + Vite
+# Smart SGA & Picking - Industrial Warehouse Management System
 
-This template provides a minimal setup to get React working in Vite with HMR and some ESLint rules.
+A modern, mobile-first Warehouse Management System (WMS) designed for industrial logistics operations. This application streamlines inventory management, order picking, and customer relationship management with full support for mobile devices and barcode scanning capabilities.
 
-Currently, two official plugins are available:
+## Table of Contents
 
-- [@vitejs/plugin-react](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react) uses [Oxc](https://oxc.rs)
-- [@vitejs/plugin-react-swc](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react-swc) uses [SWC](https://swc.rs/)
+- [Features](#features)
+- [Technology Stack](#technology-stack)
+- [Mobile & PWA Support](#mobile--pwa-support)
+- [Installation](#installation)
+- [Configuration](#configuration)
+- [Usage](#usage)
+- [Project Structure](#project-structure)
+- [Backend Setup](#backend-setup)
+- [Troubleshooting](#troubleshooting)
+- [Contributing](#contributing)
+- [License](#license)
 
-## React Compiler
+## Features
 
-The React Compiler is enabled on this template. See [this documentation](https://react.dev/learn/react-compiler) for more information.
+### Core Modules
+- **Dashboard**: Real-time KPIs and operational metrics overview
+- **Inventory Management**: Complete stock tracking with real-time updates
+- **Picking System**: Advanced order fulfillment with multiple strategies:
+  - Single Order Picking
+  - Batch Picking
+  - Zone Picking
+  - Wave Picking
+- **CRM Module**: Customer database with status tracking and interaction history
 
-Note: This will impact Vite dev & build performances.
+### Mobile Capabilities
+- 📱 **Responsive Design**: Optimized for smartphones, tablets, and desktops
+- 📷 **Barcode Scanner**: Native camera integration for scanning barcodes and QR codes
+- 🔄 **Real-time Sync**: Instant data synchronization across all devices
+- 📲 **PWA Support**: Install as a Progressive Web App for offline capabilities
 
-## Expanding the ESLint configuration
+### Key Features
+- Real-time inventory tracking
+- Multi-strategy picking workflows
+- Customer relationship management
+- Interactive dashboard with analytics
+- Mobile-optimized interface
+- Barcode/QR code scanning
+- Offline-first architecture
+- Fast and responsive UI with animations
 
-If you are developing a production application, we recommend updating the configuration to enable type-aware lint rules:
+## Technology Stack
 
-```js
-export default defineConfig([
-  globalIgnores(['dist']),
-  {
-    files: ['**/*.{ts,tsx}'],
-    extends: [
-      // Other configs...
+### Frontend
+- **React 19** - Modern UI library with latest features
+- **Vite 6** - Next-generation build tool for fast development
+- **Tailwind CSS v4** - Utility-first CSS framework with native Vite plugin
+- **TypeScript** - Type-safe development
+- **Lucide React** - Beautiful icon library
+- **Motion** - Smooth animations and transitions (formerly Framer Motion)
+- **HTML5-QRCode** - Camera-based barcode scanning
 
-      // Remove tseslint.configs.recommended and replace with this
-      tseslint.configs.recommendedTypeChecked,
-      // Alternatively, use this for stricter rules
-      tseslint.configs.strictTypeChecked,
-      // Optionally, add this for stylistic rules
-      tseslint.configs.stylisticTypeChecked,
+### Backend
+- **Bun Runtime** - Fast JavaScript runtime
+- **Prisma ORM** - Type-safe database access
+- **SQLite** - Lightweight database (development)
+- **RESTful API** - Clean API architecture
 
-      // Other configs...
-    ],
-    languageOptions: {
-      parserOptions: {
-        project: ['./tsconfig.node.json', './tsconfig.app.json'],
-        tsconfigRootDir: import.meta.dirname,
-      },
-      // other options...
-    },
-  },
-])
-```
+## Mobile & PWA Support
 
-You can also install [eslint-plugin-react-x](https://github.com/Rel1cx/eslint-react/tree/main/packages/plugins/eslint-plugin-react-x) and [eslint-plugin-react-dom](https://github.com/Rel1cx/eslint-react/tree/main/packages/plugins/eslint-plugin-react-dom) for React-specific lint rules:
+This application is built as a Progressive Web App (PWA) with the following capabilities:
 
-```js
-// eslint.config.js
-import reactX from 'eslint-plugin-react-x'
-import reactDom from 'eslint-plugin-react-dom'
+- **Installable**: Add to home screen on iOS and Android devices
+- **Offline Mode**: Core functionality available without internet connection
+- **Camera Access**: Direct access to device camera for barcode scanning
+- **Touch Optimized**: Large touch targets and gesture support
+- **Responsive Layout**: Adapts to any screen size from mobile to desktop
 
-export default defineConfig([
-  globalIgnores(['dist']),
-  {
-    files: ['**/*.{ts,tsx}'],
-    extends: [
-      // Other configs...
-      // Enable lint rules for React
-      reactX.configs['recommended-typescript'],
-      // Enable lint rules for React DOM
-      reactDom.configs.recommended,
-    ],
-    languageOptions: {
-      parserOptions: {
-        project: ['./tsconfig.node.json', './tsconfig.app.json'],
-        tsconfigRootDir: import.meta.dirname,
-      },
-      // other options...
-    },
-  },
-])
-```
+### PWA Implementation Details
+See `frontend/PWA-IMPLEMENTATION-SUMMARY.md` for complete PWA configuration guide.
+
+## Installation
+
+### Prerequisites
+- Node.js 18+ or Bun 1.0+
+- npm or bun package manager
+
+### Frontend Setup
+
+```bash
+cd frontend
+
+# Install dependencies
+npm install
+# or
+bun install
+
+# Start development server
+npm run dev
+# or
+bun run dev
