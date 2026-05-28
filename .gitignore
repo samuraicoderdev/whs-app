@@ -1,0 +1,8 @@
+node_modules
+dist/
+.openclaw/
+.vscode/
+.vscodium/
+
+.env
+.env-example
