@@ -1,12 +1,36 @@
-const isNode = typeof window === 'undefined';
-const windowObj = isNode ? { localStorage: new Map() } : window;
-const storage = windowObj.localStorage;
+interface StorageLike {
+	getItem(key: string): string | null;
+	setItem(key: string, value: string): void;
+	removeItem(key: string): void;
+}
 
-const toSnakeCase = (str) => {
+interface GetAppParamValueOptions {
+	defaultValue?: string;
+	removeFromUrl?: boolean;
+}
+
+interface AppParams {
+	appId: string | null | undefined;
+	token: string | null | undefined;
+	fromUrl: string | null | undefined;
+	functionsVersion: string | null | undefined;
+	appBaseUrl: string | null | undefined;
+}
+
+const isNode: boolean = typeof window === 'undefined';
+const windowObj: Window | { localStorage: StorageLike } = isNode
+	? { localStorage: new Map() as unknown as StorageLike }
+	: window;
+const storage: StorageLike = windowObj.localStorage;
+
+const toSnakeCase = (str: string): string => {
 	return str.replace(/([A-Z])/g, '_$1').toLowerCase();
 }
 
-const getAppParamValue = (paramName, { defaultValue = undefined, removeFromUrl = false } = {}) => {
+const getAppParamValue = (
+	paramName: string,
+	{ defaultValue = undefined, removeFromUrl = false }: GetAppParamValueOptions = {}
+): string | null | undefined => {
 	if (isNode) {
 		return defaultValue;
 	}
@@ -15,8 +39,8 @@ const getAppParamValue = (paramName, { defaultValue = undefined, removeFromUrl =
 	const searchParam = urlParams.get(paramName);
 	if (removeFromUrl) {
 		urlParams.delete(paramName);
-		const newUrl = `${window.location.pathname}${urlParams.toString() ? `?${urlParams.toString()}` : ""
-			}${window.location.hash}`;
+		const newUrl = `${window.location.pathname}${urlParams.toString() ? `?${urlParams.toString()}` : ""}
+			${window.location.hash}`;
 		window.history.replaceState({}, document.title, newUrl);
 	}
 	if (searchParam) {
@@ -34,7 +58,7 @@ const getAppParamValue = (paramName, { defaultValue = undefined, removeFromUrl =
 	return null;
 }
 
-const getAppParams = () => {
+const getAppParams = (): AppParams => {
 	if (getAppParamValue("clear_access_token") === 'true') {
 		storage.removeItem('base44_access_token');
 		storage.removeItem('token');
@@ -48,7 +72,6 @@ const getAppParams = () => {
 	}
 }
 
-
-export const appParams = {
-	...getAppParams()
+export const appParams: AppParams = {
+	...getAppParams(),
 }
